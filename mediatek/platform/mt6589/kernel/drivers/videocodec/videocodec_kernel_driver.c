@@ -55,6 +55,8 @@
 
 static dev_t vcodec_devno = MKDEV(MT6589_VCODEC_DEV_MAJOR_NUMBER,0);
 static struct cdev *vcodec_cdev;
+/* G610: class for the /dev/Vcodec node, see vcodec_probe() */
+static struct class *vcodec_class;
 
 static DEFINE_MUTEX(IsOpenedLock);
 static DEFINE_MUTEX(PWRLock);
@@ -2100,6 +2102,17 @@ static int vcodec_probe(struct platform_device *dev)
     vcodec_cdev->ops = &vcodec_fops;
 
     ret = cdev_add(vcodec_cdev, vcodec_devno, 1);
+    /* G610: the driver only registered major 160 and left creating /dev/Vcodec to an
+     * init "mknod" (not a stock KitKat init command). A class device sends the uevent
+     * that lets ueventd create the node itself, with the owner/mode from
+     * ueventd.mt6589.rc. */
+    vcodec_class = class_create(THIS_MODULE, VCODEC_DEVNAME);
+    if (IS_ERR(vcodec_class)) {
+        MFV_LOGD("[MFV_DEBUG][ERROR] G610: class_create for Vcodec failed\n");
+        vcodec_class = NULL;
+    } else if (IS_ERR(device_create(vcodec_class, NULL, vcodec_devno, NULL, VCODEC_DEVNAME))) {
+        MFV_LOGD("[MFV_DEBUG][ERROR] G610: device_create for Vcodec failed\n");
+    }
 
     if (request_irq(MT_VDEC_IRQ_ID , (irq_handler_t)video_intr_dlr, IRQF_TRIGGER_HIGH, VCODEC_DEVNAME, NULL) < 0)
     {
