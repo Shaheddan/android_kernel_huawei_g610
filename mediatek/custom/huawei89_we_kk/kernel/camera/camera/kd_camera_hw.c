@@ -179,6 +179,14 @@ int kdCISModulePowerOnG610(CAMERA_DUAL_CAMERA_SENSOR_ENUM SensorIdx, char *currS
         else if ( DUAL_CAMERA_MAIN_SENSOR == SensorIdx)
         {
             printk("Power on for G610  mainsensor: currSensorName:%s\n",currSensorName);
+            /* G610: both camera modules sit on the same I2C bus (i2c-1). The front module is
+             * fed by VGP6; left unpowered it drags SCL/SDA low, so the rear sensor answered
+             * garbage (0x1041 instead of 0x5647) or the bus timed out. Keep VGP6 up while the
+             * rear camera is on. Not fatal if it fails: the rear rails below still come up. */
+            if(TRUE != hwPowerOn(CAMERA_POWER_VCAM_DVDD_SUB, VOL_1800,mode_name))
+            {
+                PK_DBG("[CAMERA SENSOR] G610: fail to enable VGP6 for the shared bus\n");
+            }
 
             if ( currSensorName && (0 == strcmp(currSensorName,"s5k4e1gamipiraw")))
             {
@@ -349,6 +357,11 @@ int kdCISModulePowerOnG610(CAMERA_DUAL_CAMERA_SENSOR_ENUM SensorIdx, char *currS
         {
             printk("Power off for mainsensor \n");
             printk("Power off for G610 mainsensor: currSensorName:%s\n",currSensorName);
+            /* G610: matching power-down of the VGP6 rail raised at rear power-on. */
+            if(TRUE != hwPowerDown(CAMERA_POWER_VCAM_DVDD_SUB, mode_name))
+            {
+                PK_DBG("[CAMERA SENSOR] G610: fail to disable VGP6\n");
+            }
             if (S5K4E1 == cameraType)
             {
                  printk("Power off   for : S5K4E1:\n");
